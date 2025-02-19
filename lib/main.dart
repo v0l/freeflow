@@ -1,3 +1,4 @@
+import 'package:amberflutter/amberflutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:freeflow/data/video.dart';
@@ -17,6 +18,8 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip19/nip19.dart';
+import 'package:ndk_amber/data_layer/data_sources/amber_flutter.dart';
+import 'package:ndk_amber/data_layer/repositories/signers/amber_event_signer.dart';
 import 'package:ndk_objectbox/ndk_objectbox.dart';
 import 'package:ndk_rust_verifier/data_layer/repositories/verifiers/rust_event_verifier.dart';
 
@@ -52,13 +55,20 @@ Future<void> main() async {
   // reload / cache login data
   l.addListener(() {
     if (l.value != null) {
-      ndk = Ndk(
-        NdkConfig(
-            cache: ndk_cache,
-            eventVerifier: eventVerifier,
-            eventSigner: l.value!.signer(),
-            bootstrapRelays: DEFAULT_RELAYS),
-      );
+      if (!ndk.accounts.hasAccount(l.value!.pubkey)) {
+        switch (l.value!.type) {
+          case AccountType.privateKey:
+            ndk.accounts.loginPrivateKey(
+                pubkey: l.value!.pubkey, privkey: l.value!.privateKey!);
+          case AccountType.externalSigner:
+            ndk.accounts.loginExternalSigner(
+                signer: AmberEventSigner(publicKey: l.value!.pubkey,
+                    amberFlutterDS: AmberFlutterDS(Amberflutter()))
+            );
+          case AccountType.publicKey:
+            ndk.accounts.loginPublicKey(pubkey: l.value!.pubkey);
+        }
+      }
       ndk.metadata.loadMetadata(l.value!.pubkey);
       ndk.follows.getContactList(l.value!.pubkey);
     }

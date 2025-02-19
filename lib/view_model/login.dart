@@ -1,15 +1,10 @@
 import 'dart:convert';
 
-import 'package:amberflutter/amberflutter.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:ndk/ndk.dart';
+import 'package:ndk/domain_layer/entities/account.dart';
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip19/nip19.dart';
-import 'package:ndk_amber/data_layer/data_sources/amber_flutter.dart';
-import 'package:ndk_amber/data_layer/repositories/signers/amber_event_signer.dart';
-
-enum AccountType { Keys, ExternalSigner }
 
 class Account {
   final AccountType type;
@@ -25,19 +20,19 @@ class Account {
         Nip19.isKey("nsec", key) ? Bip340.getPublicKey(keyData) : keyData;
     final privateKey = Nip19.isKey("npub", key) ? null : keyData;
     return Account._(
-        type: AccountType.Keys, pubkey: pubkey, privateKey: privateKey);
+        type: AccountType.privateKey, pubkey: pubkey, privateKey: privateKey);
   }
 
   static Account privateKeyHex(String key) {
     return Account._(
-        type: AccountType.Keys,
+        type: AccountType.privateKey,
         privateKey: key,
         pubkey: Bip340.getPublicKey(key));
   }
 
   static Account externalPublicKeyHex(String key) {
     return Account._(
-        type: AccountType.ExternalSigner,
+        type: AccountType.externalSigner,
         pubkey: key);
   }
 
@@ -50,22 +45,11 @@ class Account {
   static Account? fromJson(Map<String, dynamic> json) {
     if (json.length > 2 && json.containsKey("pubKey")) {
       return Account._(
-          type: AccountType.Keys,
+          type: AccountType.privateKey,
           pubkey: json["pubKey"],
           privateKey: json["privateKey"]);
     }
     return null;
-  }
-
-  EventSigner signer() {
-    switch (type) {
-      case AccountType.Keys:
-        return Bip340EventSigner(privateKey: privateKey, publicKey: pubkey);
-      case AccountType.ExternalSigner:
-        return AmberEventSigner(publicKey: pubkey, amberFlutterDS: AmberFlutterDS(Amberflutter()));
-    }
-    // ignore: dead_code
-    throw UnimplementedError();
   }
 }
 

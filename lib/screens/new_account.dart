@@ -5,7 +5,8 @@ import 'package:freeflow/widgets/button.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:ndk/entities.dart';
+import 'package:ndk/config/bootstrap_relays.dart';
+import 'package:ndk/domain_layer/entities/metadata.dart';
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
@@ -76,6 +77,8 @@ class _NewAccountScreen extends State<NewAccountScreen> {
   }
 
   Future<void> _uploadAvatar() async {
+    ndk.accounts.loginPrivateKey(pubkey: _privateKey.publicKey, privkey: _privateKey.privateKey!);
+
     final file = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (file != null) {
       final upload =
@@ -87,31 +90,15 @@ class _NewAccountScreen extends State<NewAccountScreen> {
   }
 
   Future<void> _login() async {
-    final meta = Metadata(
+    if (ndk.accounts.isNotLoggedIn) {
+      ndk.accounts.loginPrivateKey(
+          pubkey: _privateKey.publicKey, privkey: _privateKey.privateKey!);
+    }
+
+    await ndk.metadata.broadcastMetadata(Metadata(
       pubKey: _privateKey.publicKey,
       name: _name.text,
       picture: _avatar,
-    );
-
-    final profile = meta.toEvent();
-    profile.sign(_privateKey.privateKey!);
-
-    final relays = Nip65.fromMap(
-      _privateKey.publicKey,
-      Map.fromEntries(
-        DEFAULT_RELAYS.map(
-          (r) => MapEntry(r, ReadWriteMarker.readWrite),
-        ),
-      ),
-    );
-    final relayEvent = relays.toEvent();
-    relayEvent.sign(_privateKey.privateKey!);
-
-    await ndk.userRelayLists
-        .setInitialUserRelayList(UserRelayList.fromNip65(relays));
-    await ndk.broadcast.broadcast(
-      nostrEvent: profile,
-      specificRelays: DEFAULT_RELAYS,
-    );
+    ));
   }
 }
